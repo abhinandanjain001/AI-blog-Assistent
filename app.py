@@ -1,87 +1,62 @@
 import streamlit as st
-import mimetypes
-from google import genai
-from google.genai import types
-from apikey import google_gemini_api_key, openai_api_key, huggingface_token
-from huggingface_hub import InferenceClient
+import google.generativeai as genai
 
-# Initialize Gemini client
-client = genai.Client(api_key=google_gemini_api_key)
+# =============================
+#  Secure API Configuration
+# =============================
+api_key = st.secrets["api_keys"]["google_gemini"]
+genai.configure(api_key=api_key)
 
-# Streamlit UI setup
-st.set_page_config(page_title="BlogCraft - AI Blog Companion", page_icon="📝")
-st.title("📝 BlogCraft - Your AI Blog Writing Companion")
-st.subheader("Craft the perfect blog post with AI assistance!")
+# =============================
+#  Page Configx
+# =============================
+st.set_page_config(page_title="🧠 AI Blog Companion", layout="wide")
+st.title("🧠 AI Blog Companion")
+st.caption("Your AI-powered assistant for writing, researching & creating visuals 🚀")
 
-# Sidebar inputs
-with st.sidebar:
-    st.header("📋 Blog Details")
-    blog_title = st.text_input("Blog Title", placeholder="e.g., The Future of AI in Education")
-    keywords = st.text_input("Keywords (comma-separated)", placeholder="AI, education, innovation")
-    num_words = st.slider("Number of Words", min_value=250, max_value=1000, step=250, value=500)
-    num_images = st.number_input("Number of Images", min_value=1, max_value=5, step=1, value=1)
-    submit_button = st.button("🚀 Generate Blog")
+# =============================
+#  Sidebar Design
+# =============================
+st.sidebar.title("⚙️ Settings")
 
-# Generate blog and images
-if submit_button:
-    if not blog_title or not keywords:
-        st.error("Please enter both a title and keywords.")
+tone = st.sidebar.selectbox("Blog Tone", ["Professional", "Casual", "Friendly", "Technical"])
+length = st.sidebar.slider("Blog Length (words)", 300, 2000, 800, step=100)
+include_image = st.sidebar.checkbox("Generate Blog Cover Image", True)
+st.sidebar.markdown("---")
+st.sidebar.info("💡 Tip: Use detailed descriptions for better results.")
+
+# =============================
+#  User Input
+# =============================
+blog_title = st.text_input("📝 Blog Title", placeholder="e.g. The Future of AI in Healthcare")
+blog_description = st.text_area("📄 Blog Topic / Description", placeholder="Describe the blog content or key points...")
+
+# =============================
+#  Generate Blog
+# =============================
+if st.button("🚀 Generate Blog"):
+    if not blog_title or not blog_description:
+        st.warning("⚠️ Please enter both the blog title and description.")
     else:
-        st.info("⏳ Generating your blog, please wait...")
-
-        # Dynamic blog prompt
-        prompt_text = f"""
-        Write a comprehensive, engaging blog post titled "{blog_title}".
-        Include these keywords: {keywords}.
-        The blog should be about {num_words} words long, informative, and conversational.
-        Keep it suitable for an online audience.
-        """
-
-        # ✅ Generate blog text (Gemini 2.0 Flash)
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=prompt_text
+        with st.spinner("Generating your blog with Gemini... ⏳"):
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            prompt = (
+                f"Write a detailed blog post titled '{blog_title}' about {blog_description}. "
+                f"Tone: {tone}. Length: around {length} words."
             )
-            blog_content = response.text.strip()
-            st.success("✅ Blog generated successfully!")
-            st.markdown("### 📝 Generated Blog Content")
-            st.write(blog_content)
-        except Exception as e:
-            st.error(f"Blog generation failed: {e}")
-            st.stop()
+            response = model.generate_content(prompt)
+            st.subheader("🧾 Generated Blog Post")
+            st.write(response.text)
 
-        st.divider()
+        # =============================
+        #  Generate Blog Image (Optional)
+        # =============================
+        if include_image:
+            with st.spinner("Generating cover image... 🎨"):
+                image_prompt = f"An artistic blog cover image for: {blog_title}"
+                image_model = genai.GenerativeModel("imagen-3.0-generate")  # DALL·E-like model
+                image_response = image_model.generate_content(image_prompt)
+                st.image(image_response.images[0], caption="🖼️ AI-Generated Cover Image", use_container_width=True)
 
-        # ✅ Generate AI images using Hugging Face (Free)
-        st.subheader("🖼️ AI-Generated Images")
-        try:
-            hf_client = InferenceClient(token=huggingface_token)
-        except Exception as e:
-            st.error(f"Image setup failed: {e}")
-            st.stop()
-
-        for i in range(num_images):
-            img_prompt = (
-                f"An illustrative, professional, blog-style image for an article titled "
-                f"'{blog_title}' about {keywords}. Digital art, clean, high quality, no text."
-            )
-            try:
-                with st.spinner(f"🎨 Generating image {i+1}..."):
-                    image = hf_client.text_to_image(
-                        prompt=img_prompt,
-                        model="stabilityai/stable-diffusion-xl-base-1.0"
-                    )
-                    st.image(image, caption=f"Generated Image {i+1}", use_column_width=True)
-            except Exception as e:
-                st.warning(f"⚠️ Could not generate image {i+1}: {e}")
-
-        st.divider()
-
-        # ✅ Blog download option
-        st.download_button(
-            label="📥 Download Blog as Text File",
-            data=blog_content,
-            file_name=f"{blog_title.replace(' ', '_')}.txt",
-            mime="text/plain"
-        )
+st.markdown("---")
+st.markdown("💬 *Made by Abhinandan Jain | Powered by Google Gemini + Streamlit*")

@@ -1,0 +1,4 @@
+# .gitignore
+
+apikey.py
+.streamlit/secrets.toml
