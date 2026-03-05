@@ -3,3 +3,5 @@ google-genai
 huggingface-hub
 openai
 google-generativeai
+
+python-dotenv
