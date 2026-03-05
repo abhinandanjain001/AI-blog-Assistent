@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 
 # --- PAGE CONFIG MUST BE FIRST ---
-st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝")
+st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝", layout="wide")
 
 # Load environment variables
 load_dotenv()
