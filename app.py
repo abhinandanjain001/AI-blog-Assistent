@@ -3,12 +3,12 @@ from huggingface_hub import InferenceClient
 import os
 from dotenv import load_dotenv
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝", layout="wide")
+# PAGE CONFIG
+st.set_page_config(page_title="AI Blog Writer", page_icon="📝", layout="wide")
 
 load_dotenv()
 
-# --- GET HF TOKEN ---
+# GET TOKEN
 def get_huggingface_token():
     try:
         api_keys = st.secrets.get("api_keys", {})
@@ -27,13 +27,25 @@ def get_huggingface_token():
 
     return os.getenv("HUGGINGFACE_TOKEN")
 
+
 HUGGINGFACE_TOKEN = get_huggingface_token()
 
 if not HUGGINGFACE_TOKEN:
-    st.error("HUGGINGFACE_TOKEN not found in secrets or env")
+    st.error("HuggingFace token not found")
     st.stop()
 
-# --- TEXT CLIENT ---
+
+# TEXT CLIENT
+@st.cache_resource
+def get_text_client():
+    return InferenceClient(
+        model="HuggingFaceH4/zephyr-7b-beta",
+        provider="hf-inference",
+        token=HUGGINGFACE_TOKEN
+    )
+
+
+# IMAGE CLIENT
 @st.cache_resource
 def get_image_client():
     return InferenceClient(
@@ -42,15 +54,8 @@ def get_image_client():
         token=HUGGINGFACE_TOKEN
     )
 
-# --- IMAGE CLIENT ---
-@st.cache_resource
-def get_image_client():
-    return InferenceClient(
-        model="stabilityai/stable-diffusion-xl-base-1.0",
-        provider="hf-inference",
-        token=HUGGINGFACE_TOKEN
-    )
-# --- TEXT GENERATION ---
+
+# GENERATE BLOG
 def generate_blog_content(prompt, max_length=500, temperature=0.9):
 
     try:
@@ -63,40 +68,36 @@ def generate_blog_content(prompt, max_length=500, temperature=0.9):
             do_sample=True
         )
 
-        if response:
-            return response.strip()
-        return None
+        return response
 
     except Exception as e:
-        st.error(f"Text generation error: {str(e)}")
+        st.error(f"Text generation error: {e}")
         return None
 
 
-# --- IMAGE GENERATION ---
+# GENERATE IMAGE
 def generate_hf_image(prompt_text):
 
     try:
-        image_client = get_image_client()
+        client = get_image_client()
 
-        image = image_client.text_to_image(
-            prompt=prompt_text
-        )
+        image = client.text_to_image(prompt_text)
 
         return image
 
     except Exception as e:
-        st.error(f"Image generation failed: {e}")
+        st.error(f"Image generation error: {e}")
         return None
 
 
-# --- UI ---
-st.title("📝 Hugging Face BlogWriter")
-st.subheader("Generate blogs & images using HuggingFace AI models!")
+# UI
+st.title("📝 AI Blog Writer")
+st.subheader("Generate blogs and images using HuggingFace AI")
 
-# --- SIDEBAR ---
+# SIDEBAR
 with st.sidebar:
 
-    st.header("📋 Blog Settings")
+    st.header("Blog Settings")
 
     blog_title = st.text_input(
         "Blog Title",
@@ -123,26 +124,29 @@ with st.sidebar:
     )
 
     temperature = st.slider(
-        "Creativity (Temperature)",
+        "Creativity",
         0.1,
         1.5,
         0.9
     )
 
-    generate_button = st.button("🚀 Generate Blog")
+    generate_button = st.button("Generate Blog")
 
-# --- SESSION STATE ---
+
+# SESSION STATE
 if "blog_content" not in st.session_state:
     st.session_state.blog_content = ""
 
-# --- GENERATE BLOG ---
+
+# GENERATE BLOG
 if generate_button:
 
     if not blog_title or not keywords:
         st.error("Enter blog title and keywords")
+
     else:
 
-        st.subheader("✍️ Generated Blog")
+        st.subheader("Generated Blog")
 
         prompt = f"""
 Write a detailed blog titled '{blog_title}' about {keywords}.
@@ -156,33 +160,36 @@ Include:
 Blog length approx {blog_length} words.
 """
 
-        with st.spinner("Generating blog using AI..."):
+        with st.spinner("Generating blog..."):
 
-            st.session_state.blog_content = generate_blog_content(
+            blog = generate_blog_content(
                 prompt,
                 max_length=blog_length * 2,
                 temperature=temperature
             )
 
-        if st.session_state.blog_content:
+        if blog:
 
-            st.success("Blog generated!")
+            st.session_state.blog_content = blog
 
-            st.markdown(st.session_state.blog_content)
+            st.success("Blog generated successfully")
+
+            st.markdown(blog)
 
         else:
             st.warning("Could not generate blog content")
 
-# --- IMAGE GENERATION ---
+
+# IMAGE GENERATION
 if st.session_state.blog_content:
 
-    st.subheader("🖼️ Generated Images")
+    st.subheader("Generated Images")
 
     for i in range(num_images):
 
         img_prompt = f"""
 Professional blog illustration about {keywords}.
-Modern digital art, clean style.
+Modern digital art style.
 """
 
         with st.spinner(f"Generating image {i+1}"):
@@ -192,11 +199,12 @@ Modern digital art, clean style.
             if img:
                 st.image(img, caption=f"Image {i+1}")
 
-# --- DOWNLOAD ---
+
+# DOWNLOAD
 if st.session_state.blog_content:
 
     st.download_button(
-        "📥 Download Blog",
+        "Download Blog",
         st.session_state.blog_content,
         file_name=f"{blog_title.replace(' ','_')}.txt"
     )
