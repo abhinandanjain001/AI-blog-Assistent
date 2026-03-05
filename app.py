@@ -4,6 +4,9 @@ from huggingface_hub import InferenceClient
 import os
 from dotenv import load_dotenv
 
+# --- PAGE CONFIG MUST BE FIRST ---
+st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝")
+
 # Load environment variables
 load_dotenv()
 
@@ -79,7 +82,6 @@ def generate_hf_image(prompt_text):
         return None
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝")
 st.title("📝 Hugging Face BlogWriter")
 st.subheader("Generate blogs & images using only HF Inference APIs!")
 
