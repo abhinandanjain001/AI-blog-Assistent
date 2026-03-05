@@ -18,60 +18,43 @@ if not HUGGINGFACE_TOKEN:
     st.error("HUGGINGFACE_TOKEN not found in Streamlit secrets or .env file. Please configure your API keys.")
     st.stop()
 
-# Initialize InferenceClient for text generation (using requests for more control over GPT-2 specifics)
-# GPT-2 text generation model
-GPT2_API_URL = "https://api-inference.huggingface.co/models/openai-community/gpt2"
-headers = {"Authorization": f"Bearer {HUGGINGFACE_TOKEN}"}
+# Initialize InferenceClient for text generation
+text_client = InferenceClient(token=HUGGINGFACE_TOKEN)
+TEXT_GEN_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 
 # Initialize InferenceClient for image generation
 # Stable Diffusion XL for high-quality images
 image_client = InferenceClient(token=HUGGINGFACE_TOKEN)
-IMAGE_GEN_MODEL = "stabilityai/stable-diffusion-xl-base-1.0"
+IMAGE_GEN_MODEL = "stabilityai/stable-diffusion-3.5-large-turbo"
 
+headers = {"Authorization": f"Bearer {HUGGINGFACE_TOKEN}"}
 
 # --- Functions for Hugging Face Inference ---
 @st.cache_data(show_spinner=False)
-def generate_gpt2_blog_content(prompt, max_length=500, temperature=0.9):
+def generate_blog_content(prompt, max_length=500, temperature=0.9):
     """
-    Generates text using the Hugging Face Inference API for GPT-2.
-    Using requests for more fine-grained control over generation parameters.
+    Generates text using Hugging Face InferenceClient with a reliable model.
     """
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": max_length,
-            "temperature": temperature,
-            "do_sample": True, # Enables sampling
-            "num_return_sequences": 1,
-            "eos_token_id": 50256 # End of sequence token for GPT-2
-        }
-    }
-    
     try:
-        response = requests.post(GPT2_API_URL, headers=headers, json=payload, timeout=60) # Increased timeout
-        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
-        output = response.json()
+        response = text_client.text_generation(
+            prompt=prompt,
+            model=TEXT_GEN_MODEL,
+            max_new_tokens=max_length,
+            temperature=temperature,
+            do_sample=True
+        )
         
-        if output and isinstance(output, list) and 'generated_text' in output[0]:
-            # GPT-2 typically returns the input prompt prepended to the generated text.
-            # We want to remove the input prompt to get only the new content,
-            # but ensure we don't accidentally cut off the start of a sentence.
-            generated_text_with_prompt = output[0]['generated_text']
-            
-            # Find where the prompt ends and the new text begins (approximate)
-            # This is a heuristic, GPT-2 might rephrase the beginning slightly
-            if generated_text_with_prompt.startswith(prompt):
-                return generated_text_with_prompt[len(prompt):].strip()
-            return generated_text_with_prompt.strip() # Fallback
-
+        if response:
+            return response.strip()
         else:
-            st.error(f"GPT-2 generation failed: {output}")
+            st.error("Text generation returned empty response")
             return None
+            
     except requests.exceptions.RequestException as e:
-        st.error(f"Network or API error during GPT-2 generation: {e}")
+        st.error(f"Network or API error during text generation: {e}")
         return None
     except Exception as e:
-        st.error(f"An unexpected error occurred during GPT-2 generation: {e}")
+        st.error(f"An unexpected error occurred during text generation: {e}")
         return None
 
 
@@ -125,10 +108,10 @@ if generate_button:
             f"\n\nTitle: {blog_title}\n\n"
         )
         
-        with st.spinner("Generating blog content with GPT-2... this might take a moment."):
-            st.session_state.hf_blog_content = generate_gpt2_blog_content(
+        with st.spinner("Generating blog content with Mistral... this might take a moment."):
+            st.session_state.hf_blog_content = generate_blog_content(
                 blog_prompt, 
-                max_length=blog_length * 2, # GPT-2 max_new_tokens is tokens, not words. ~2x words for tokens.
+                max_length=blog_length * 2,
                 temperature=gpt2_temperature
             )
             
