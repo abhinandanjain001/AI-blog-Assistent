@@ -39,7 +39,7 @@ if not HUGGINGFACE_TOKEN:
 @st.cache_resource
 def get_text_client():
     return InferenceClient(
-        model="HuggingFaceH4/zephyr-7b-beta",
+        model="microsoft/Phi-3-mini-4k-instruct",
         provider="hf-inference",
         token=HUGGINGFACE_TOKEN
     )
@@ -65,7 +65,6 @@ def generate_blog_content(prompt, max_length=500, temperature=0.9):
             prompt,
             max_new_tokens=max_length,
             temperature=temperature,
-            do_sample=True
         )
 
         return response
