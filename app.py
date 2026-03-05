@@ -18,14 +18,19 @@ if not HUGGINGFACE_TOKEN:
     st.error("HUGGINGFACE_TOKEN not found in Streamlit secrets or .env file. Please configure your API keys.")
     st.stop()
 
-# Initialize InferenceClient for text generation
-text_client = InferenceClient(token=HUGGINGFACE_TOKEN)
-TEXT_GEN_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
+# Initialize InferenceClient with new router endpoint
+text_client = InferenceClient(
+    model="mistralai/Mistral-7B-Instruct-v0.1",
+    token=HUGGINGFACE_TOKEN,
+    base_url="https://router.huggingface.co"
+)
 
 # Initialize InferenceClient for image generation
-# Stable Diffusion XL for high-quality images
-image_client = InferenceClient(token=HUGGINGFACE_TOKEN)
-IMAGE_GEN_MODEL = "stabilityai/stable-diffusion-3.5-large-turbo"
+image_client = InferenceClient(
+    model="stabilityai/stable-diffusion-3.5-large-turbo",
+    token=HUGGINGFACE_TOKEN,
+    base_url="https://router.huggingface.co"
+)
 
 headers = {"Authorization": f"Bearer {HUGGINGFACE_TOKEN}"}
 
@@ -38,7 +43,6 @@ def generate_blog_content(prompt, max_length=500, temperature=0.9):
     try:
         response = text_client.text_generation(
             prompt=prompt,
-            model=TEXT_GEN_MODEL,
             max_new_tokens=max_length,
             temperature=temperature,
             do_sample=True
@@ -64,8 +68,7 @@ def generate_hf_image(prompt_text):
     try:
         # The image_client's text_to_image method handles the API call
         image = image_client.text_to_image(
-            prompt=prompt_text,
-            model=IMAGE_GEN_MODEL
+            prompt=prompt_text
         )
         return image
     except Exception as e:
