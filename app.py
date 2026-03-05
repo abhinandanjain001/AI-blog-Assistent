@@ -8,11 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Hugging Face API Configuration ---
-# Get your Hugging Face API token from .env
-HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+# Get your Hugging Face API token from Streamlit secrets or .env
+try:
+    HUGGINGFACE_TOKEN = st.secrets["api_keys"]["huggingface_token"]
+except (KeyError, FileNotFoundError):
+    HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
 if not HUGGINGFACE_TOKEN:
-    st.error("HUGGINGFACE_TOKEN not found in .env file. Please create a .env file and add your token.")
+    st.error("HUGGINGFACE_TOKEN not found in Streamlit secrets or .env file. Please configure your API keys.")
     st.stop()
 
 # Initialize InferenceClient for text generation (using requests for more control over GPT-2 specifics)
