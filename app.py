@@ -47,9 +47,9 @@ def get_image_client():
 def get_image_client():
     return InferenceClient(
         model="stabilityai/stable-diffusion-xl-base-1.0",
+        provider="hf-inference",
         token=HUGGINGFACE_TOKEN
     )
-
 # --- TEXT GENERATION ---
 def generate_blog_content(prompt, max_length=500, temperature=0.9):
 
