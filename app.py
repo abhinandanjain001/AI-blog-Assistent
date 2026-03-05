@@ -1,106 +1,89 @@
 import streamlit as st
-from huggingface_hub import InferenceClient
-import os
+import google.generativeai as genai
 
-st.set_page_config(page_title="AI Blog Writer", page_icon="📝", layout="wide")
+# Page config
+st.set_page_config(page_title="AI Blog Generator", page_icon="📝", layout="wide")
 
-# Get HF Token
-def get_huggingface_token():
+# Get Gemini API key from Streamlit secrets
+def get_gemini_key():
     try:
         api_keys = st.secrets.get("api_keys", {})
-        return api_keys.get("huggingface_token")
+        return api_keys.get("google_gemini_api_key")
     except:
-        return os.getenv("HUGGINGFACE_TOKEN")
+        return None
 
-HUGGINGFACE_TOKEN = get_huggingface_token()
 
-if not HUGGINGFACE_TOKEN:
-    st.error("HuggingFace token missing")
+GEMINI_API_KEY = get_gemini_key()
+
+if not GEMINI_API_KEY:
+    st.error("Gemini API key not found in Streamlit secrets.")
     st.stop()
 
+# Configure Gemini
+genai.configure(api_key=GEMINI_API_KEY)
 
-# TEXT CLIENT
-@st.cache_resource
-def get_text_client():
-    return InferenceClient(
-        model="google/flan-t5-large",
-        provider="hf-inference",
-        token=HUGGINGFACE_TOKEN
-    )
-
-
-# IMAGE CLIENT
-@st.cache_resource
-def get_image_client():
-    return InferenceClient(
-        model="stabilityai/stable-diffusion-2",
-        provider="hf-inference",
-        token=HUGGINGFACE_TOKEN
-    )
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 
 # Generate Blog
 def generate_blog(prompt):
 
     try:
-        client = get_text_client()
-
-        response = client.text_generation(
-            prompt,
-            max_new_tokens=400
-        )
-
-        return response
-
+        response = model.generate_content(prompt)
+        return response.text
     except Exception as e:
-        st.error(f"Text generation error: {e}")
-        return None
-
-
-# Generate Image
-def generate_image(prompt):
-
-    try:
-        client = get_image_client()
-
-        image = client.text_to_image(prompt)
-
-        return image
-
-    except Exception as e:
-        st.error(f"Image generation error: {e}")
+        st.error(f"Blog generation error: {e}")
         return None
 
 
 # UI
 st.title("📝 AI Blog Generator")
+st.subheader("Generate blogs using Google Gemini AI")
 
+# Sidebar
 with st.sidebar:
 
-    title = st.text_input("Blog Title", "Future of Artificial Intelligence")
+    blog_title = st.text_input(
+        "Blog Title",
+        "Future of Artificial Intelligence"
+    )
 
     keywords = st.text_input(
         "Keywords",
         "AI, Machine Learning, Technology"
     )
 
-    images = st.slider("Images", 1, 3, 1)
+    blog_length = st.slider(
+        "Blog Length",
+        200,
+        1500,
+        500
+    )
 
     generate = st.button("Generate Blog")
 
 
+# Session state
 if "blog" not in st.session_state:
     st.session_state.blog = ""
 
 
+# Generate blog
 if generate:
 
     prompt = f"""
-Write a detailed blog titled '{title}' about {keywords}.
-Include introduction, main points and conclusion.
+Write a detailed blog titled '{blog_title}' about {keywords}.
+
+Include:
+- Introduction
+- Key insights
+- Examples
+- Conclusion
+
+Approximate length: {blog_length} words.
 """
 
-    with st.spinner("Generating blog..."):
+    with st.spinner("Generating blog with Gemini..."):
 
         blog = generate_blog(prompt)
 
@@ -108,30 +91,15 @@ Include introduction, main points and conclusion.
 
         st.session_state.blog = blog
 
-        st.success("Blog Generated")
+        st.success("Blog generated!")
 
-        st.write(blog)
+        st.markdown(blog)
 
     else:
-        st.warning("Blog generation failed")
+        st.warning("Blog generation failed.")
 
 
-if st.session_state.blog:
-
-    st.subheader("Generated Images")
-
-    for i in range(images):
-
-        img_prompt = f"Illustration for blog about {keywords}"
-
-        with st.spinner("Generating image..."):
-
-            img = generate_image(img_prompt)
-
-        if img:
-            st.image(img)
-
-
+# Download
 if st.session_state.blog:
 
     st.download_button(
