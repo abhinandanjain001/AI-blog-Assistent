@@ -18,21 +18,22 @@ if not HUGGINGFACE_TOKEN:
     st.error("HUGGINGFACE_TOKEN not found in Streamlit secrets or .env file. Please configure your API keys.")
     st.stop()
 
-# Initialize InferenceClient with new router endpoint
-text_client = InferenceClient(
-    model="mistralai/Mistral-7B-Instruct-v0.1",
-    token=HUGGINGFACE_TOKEN,
-    base_url="https://router.huggingface.co"
-)
+# Initialize clients lazily when needed
+@st.cache_resource
+def get_text_client():
+    return InferenceClient(
+        model="mistralai/Mistral-7B-Instruct-v0.1",
+        token=HUGGINGFACE_TOKEN,
+        base_url="https://router.huggingface.co"
+    )
 
-# Initialize InferenceClient for image generation
-image_client = InferenceClient(
-    model="stabilityai/stable-diffusion-3.5-large-turbo",
-    token=HUGGINGFACE_TOKEN,
-    base_url="https://router.huggingface.co"
-)
-
-headers = {"Authorization": f"Bearer {HUGGINGFACE_TOKEN}"}
+@st.cache_resource
+def get_image_client():
+    return InferenceClient(
+        model="stabilityai/stable-diffusion-3.5-large-turbo",
+        token=HUGGINGFACE_TOKEN,
+        base_url="https://router.huggingface.co"
+    )
 
 # --- Functions for Hugging Face Inference ---
 @st.cache_data(show_spinner=False)
@@ -41,6 +42,7 @@ def generate_blog_content(prompt, max_length=500, temperature=0.9):
     Generates text using Hugging Face InferenceClient with a reliable model.
     """
     try:
+        text_client = get_text_client()
         response = text_client.text_generation(
             prompt=prompt,
             max_new_tokens=max_length,
@@ -67,6 +69,7 @@ def generate_hf_image(prompt_text):
     """Generates an image using Hugging Face InferenceClient."""
     try:
         # The image_client's text_to_image method handles the API call
+        image_client = get_image_client()
         image = image_client.text_to_image(
             prompt=prompt_text
         )
