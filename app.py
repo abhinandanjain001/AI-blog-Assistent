@@ -41,27 +41,17 @@ if not HUGGINGFACE_TOKEN:
 # Initialize clients lazily when needed
 @st.cache_resource
 def get_text_client():
-    client_kwargs = {
-        "model": "mistralai/Mistral-7B-Instruct-v0.1",
-        "token": HUGGINGFACE_TOKEN,
-    }
-    try:
-        return InferenceClient(**client_kwargs, base_url="https://router.huggingface.co")
-    except TypeError:
-        # Older huggingface_hub versions do not support base_url.
-        return InferenceClient(**client_kwargs)
+    return InferenceClient(
+        model="mistralai/Mistral-7B-Instruct-v0.1",
+        token=HUGGINGFACE_TOKEN,
+    )
 
 @st.cache_resource
 def get_image_client():
-    client_kwargs = {
-        "model": "stabilityai/stable-diffusion-3.5-large-turbo",
-        "token": HUGGINGFACE_TOKEN,
-    }
-    try:
-        return InferenceClient(**client_kwargs, base_url="https://router.huggingface.co")
-    except TypeError:
-        # Older huggingface_hub versions do not support base_url.
-        return InferenceClient(**client_kwargs)
+    return InferenceClient(
+        model="stabilityai/stable-diffusion-3.5-large-turbo",
+        token=HUGGINGFACE_TOKEN,
+    )
 
 # --- Functions for Hugging Face Inference ---
 @st.cache_data(show_spinner=False)
