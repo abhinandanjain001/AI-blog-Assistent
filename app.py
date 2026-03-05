@@ -35,9 +35,10 @@ if not HUGGINGFACE_TOKEN:
 
 # --- TEXT CLIENT ---
 @st.cache_resource
-def get_text_client():
+def get_image_client():
     return InferenceClient(
-        model="HuggingFaceH4/zephyr-7b-beta",
+        model="stabilityai/stable-diffusion-xl-base-1.0",
+        provider="hf-inference",
         token=HUGGINGFACE_TOKEN
     )
 
