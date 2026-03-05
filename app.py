@@ -4,6 +4,7 @@ from huggingface_hub import InferenceClient
 import os
 from dotenv import load_dotenv
 
+
 # --- PAGE CONFIG MUST BE FIRST ---
 st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝", layout="wide")
 
@@ -11,11 +12,27 @@ st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝", layout
 load_dotenv()
 
 # --- Hugging Face API Configuration ---
-# Get your Hugging Face API token from Streamlit secrets or .env
-try:
-    HUGGINGFACE_TOKEN = st.secrets["api_keys"]["huggingface_token"]
-except (KeyError, FileNotFoundError):
-    HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+def get_huggingface_token():
+    """Resolve HF token from Streamlit secrets (nested/flat) or env vars."""
+    try:
+        api_keys = st.secrets.get("api_keys", {})
+        token = api_keys.get("huggingface_token")
+        if token:
+            return token
+    except Exception:
+        pass
+
+    try:
+        token = st.secrets.get("huggingface_token") or st.secrets.get("HUGGINGFACE_TOKEN")
+        if token:
+            return token
+    except Exception:
+        pass
+
+    return os.getenv("HUGGINGFACE_TOKEN") or os.getenv("huggingface_token")
+
+
+HUGGINGFACE_TOKEN = get_huggingface_token()
 
 if not HUGGINGFACE_TOKEN:
     st.error("HUGGINGFACE_TOKEN not found in Streamlit secrets or .env file. Please configure your API keys.")
