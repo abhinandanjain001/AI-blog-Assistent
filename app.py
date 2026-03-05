@@ -1,49 +1,47 @@
 import streamlit as st
-import requests
 from huggingface_hub import InferenceClient
 import os
 from dotenv import load_dotenv
 
-# --- PAGE CONFIG MUST BE FIRST ---
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="HuggingFace BlogWriter", page_icon="📝", layout="wide")
 
-# Load environment variables
 load_dotenv()
 
-# --- Hugging Face API Configuration ---
+# --- GET HF TOKEN ---
 def get_huggingface_token():
-    """Resolve HF token from Streamlit secrets (nested/flat) or env vars."""
     try:
         api_keys = st.secrets.get("api_keys", {})
         token = api_keys.get("huggingface_token")
         if token:
             return token
-    except Exception:
+    except:
         pass
 
     try:
-        token = st.secrets.get("huggingface_token") or st.secrets.get("HUGGINGFACE_TOKEN")
+        token = st.secrets.get("huggingface_token")
         if token:
             return token
-    except Exception:
+    except:
         pass
 
-    return os.getenv("HUGGINGFACE_TOKEN") or os.getenv("huggingface_token")
-
+    return os.getenv("HUGGINGFACE_TOKEN")
 
 HUGGINGFACE_TOKEN = get_huggingface_token()
 
 if not HUGGINGFACE_TOKEN:
-    st.error("HUGGINGFACE_TOKEN not found in Streamlit secrets or .env file. Please configure your API keys.")
+    st.error("HUGGINGFACE_TOKEN not found in secrets or env")
     st.stop()
 
-# Initialize clients lazily when needed
+# --- TEXT CLIENT ---
 @st.cache_resource
 def get_text_client():
     return InferenceClient(
+        model="HuggingFaceH4/zephyr-7b-beta",
         token=HUGGINGFACE_TOKEN
     )
 
+# --- IMAGE CLIENT ---
 @st.cache_resource
 def get_image_client():
     return InferenceClient(
@@ -51,116 +49,153 @@ def get_image_client():
         token=HUGGINGFACE_TOKEN
     )
 
-# --- Functions for Hugging Face Inference ---
-@st.cache_data(show_spinner=False)
+# --- TEXT GENERATION ---
 def generate_blog_content(prompt, max_length=500, temperature=0.9):
-    """
-    Generates text using Hugging Face InferenceClient with Mistral via chat API.
-    """
+
     try:
-        text_client = get_text_client()
-        response = text_client.chat.completions.create(
-            model="mistralai/Mistral-7B-Instruct-v0.1",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_length,
-            temperature=temperature
+        client = get_text_client()
+
+        response = client.text_generation(
+            prompt,
+            max_new_tokens=max_length,
+            temperature=temperature,
+            do_sample=True
         )
-        
-        if response and response.choices:
-            return response.choices[0].message.content.strip()
-        else:
-            st.error("Text generation returned empty response")
-            return None
-            
+
+        if response:
+            return response.strip()
+        return None
+
     except Exception as e:
-        st.error(f"Text generation error: {e}")
+        st.error(f"Text generation error: {str(e)}")
         return None
 
 
-@st.cache_data(show_spinner=False)
+# --- IMAGE GENERATION ---
 def generate_hf_image(prompt_text):
-    """Generates an image using Hugging Face InferenceClient."""
+
     try:
         image_client = get_image_client()
+
         image = image_client.text_to_image(
             prompt=prompt_text
         )
+
         return image
+
     except Exception as e:
         st.error(f"Image generation failed: {e}")
         return None
 
-# --- Streamlit UI ---
+
+# --- UI ---
 st.title("📝 Hugging Face BlogWriter")
-st.subheader("Generate blogs & images using only HF Inference APIs!")
+st.subheader("Generate blogs & images using HuggingFace AI models!")
 
-# --- Sidebar ---
+# --- SIDEBAR ---
 with st.sidebar:
+
     st.header("📋 Blog Settings")
-    blog_title = st.text_input("Blog Title", "The Future of Open Source AI")
-    keywords = st.text_input("Keywords (comma-separated)", "Open Source AI, LLMs, community, development")
-    blog_length = st.slider("Blog Length (approx. words)", 100, 700, 300)
-    num_images = st.slider("Number of Images", 1, 3, 1)
-    
-    st.subheader("⚙️ Generation Parameters")
-    gen_temperature = st.slider("Temperature", 0.1, 1.5, 0.9, 0.1)
-    
-    generate_button = st.button("🚀 Generate Blog & Images")
 
-# Initialize session state for blog content
-if 'hf_blog_content' not in st.session_state:
-    st.session_state.hf_blog_content = ""
+    blog_title = st.text_input(
+        "Blog Title",
+        "The Future of Open Source AI"
+    )
 
+    keywords = st.text_input(
+        "Keywords",
+        "Open Source AI, LLMs, community"
+    )
+
+    blog_length = st.slider(
+        "Blog Length",
+        100,
+        700,
+        300
+    )
+
+    num_images = st.slider(
+        "Number of Images",
+        1,
+        3,
+        1
+    )
+
+    temperature = st.slider(
+        "Creativity (Temperature)",
+        0.1,
+        1.5,
+        0.9
+    )
+
+    generate_button = st.button("🚀 Generate Blog")
+
+# --- SESSION STATE ---
+if "blog_content" not in st.session_state:
+    st.session_state.blog_content = ""
+
+# --- GENERATE BLOG ---
 if generate_button:
+
     if not blog_title or not keywords:
-        st.error("Please enter a blog title and keywords.")
+        st.error("Enter blog title and keywords")
     else:
-        # --- Blog Generation ---
-        st.subheader("✍️ Your Generated Blog")
-        blog_prompt = (
-            f"Write a comprehensive blog post titled '{blog_title}' focusing on '{keywords}'. "
-            f"Start with an engaging introduction, provide several main points with details, "
-            f"and conclude with a summary. The blog should be well-structured and approximately {blog_length} words long."
-            f"\n\nTitle: {blog_title}\n\n"
-        )
-        
-        with st.spinner("Generating blog content... this might take a moment."):
-            st.session_state.hf_blog_content = generate_blog_content(
-                blog_prompt, 
+
+        st.subheader("✍️ Generated Blog")
+
+        prompt = f"""
+Write a detailed blog titled '{blog_title}' about {keywords}.
+
+Include:
+- Introduction
+- Key insights
+- Examples
+- Conclusion
+
+Blog length approx {blog_length} words.
+"""
+
+        with st.spinner("Generating blog using AI..."):
+
+            st.session_state.blog_content = generate_blog_content(
+                prompt,
                 max_length=blog_length * 2,
-                temperature=gen_temperature
+                temperature=temperature
             )
-            
-        if st.session_state.hf_blog_content:
-            st.success("Blog content generated!")
-            st.markdown(st.session_state.hf_blog_content)
+
+        if st.session_state.blog_content:
+
+            st.success("Blog generated!")
+
+            st.markdown(st.session_state.blog_content)
+
         else:
-            st.warning("Could not generate blog content.")
+            st.warning("Could not generate blog content")
 
-    # --- Image Generation ---
-    if st.session_state.hf_blog_content:
-        st.subheader("🖼️ Generated Images")
-        image_gen_prompts = []
-        for i in range(num_images):
-            image_prompt = (
-                f"Professional, digital art illustration for a blog post titled '{blog_title}' "
-                f"about {keywords}. Focus on a key concept from the blog. Clean, modern, vibrant style, no text."
-            )
-            image_gen_prompts.append(image_prompt)
+# --- IMAGE GENERATION ---
+if st.session_state.blog_content:
 
-        for i, img_prompt in enumerate(image_gen_prompts):
-            with st.spinner(f"Creating image {i+1}/{num_images}..."):
-                img = generate_hf_image(img_prompt)
-                if img:
-                    st.image(img, caption=f"Image {i+1} for '{blog_title}'")
-                else:
-                    st.warning(f"Failed to generate image {i+1}.")
-    
-    # --- Download Button ---
-    if st.session_state.hf_blog_content:
-        st.download_button(
-            label="📥 Download Blog (TXT)",
-            data=st.session_state.hf_blog_content,
-            file_name=f"{blog_title.replace(' ', '_').lower()}.txt",
-            mime="text/plain"
-        )
+    st.subheader("🖼️ Generated Images")
+
+    for i in range(num_images):
+
+        img_prompt = f"""
+Professional blog illustration about {keywords}.
+Modern digital art, clean style.
+"""
+
+        with st.spinner(f"Generating image {i+1}"):
+
+            img = generate_hf_image(img_prompt)
+
+            if img:
+                st.image(img, caption=f"Image {i+1}")
+
+# --- DOWNLOAD ---
+if st.session_state.blog_content:
+
+    st.download_button(
+        "📥 Download Blog",
+        st.session_state.blog_content,
+        file_name=f"{blog_title.replace(' ','_')}.txt"
+    )
